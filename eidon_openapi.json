@@ -1,0 +1,587 @@
+{
+  "openapi": "3.0.2",
+  "info": {
+    "title": "Eidon Backend API",
+    "version": "0.2.1",
+    "description": "Backend service for capturing, processing, and searching personal digital activity. Includes automatic screen capture."
+  },
+  "servers": [
+    {
+      "url": "https://api.aiwithbenefits.com/api",
+      "description": "eidon backend"
+    }
+  ],
+  "paths": {
+    "/capture/base64": {
+      "post": {
+        "summary": "Submit Base64 Encoded Image",
+        "description": "Accepts a base64 encoded image and associated metadata for asynchronous processing.",
+        "operationId": "api_submit_capture_base64",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaptureDataPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Image upload accepted for processing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {"type": "string"},
+                    "timestamp": {"type": "integer"}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request data"
+          }
+        }
+      }
+    },
+    "/capture/upload": {
+      "post": {
+        "summary": "Upload Image File",
+        "description": "Accepts an image file via multipart/form-data for asynchronous processing.",
+        "operationId": "api_submit_capture_upload",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "image_file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Image file (PNG, JPEG, WEBP). Max 20MB."
+                  },
+                  "app_name": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "window_title": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "page_url": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "timestamp_ms": {
+                    "type": "integer",
+                    "nullable": true
+                  }
+                },
+                "required": ["image_file"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Image upload accepted for processing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {"type": "string"},
+                    "filename": {"type": "string"},
+                    "timestamp": {"type": "integer"}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid file format or other error"
+          }
+        }
+      }
+    },
+    "/search": {
+      "post": {
+        "summary": "Perform Search with LLM",
+        "description": "Performs natural language search using XAI LLM, which can use tools to query the database.",
+        "operationId": "api_perform_search_with_llm",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchQueryPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponseModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid search query"
+          }
+        }
+      }
+    },
+    "/status": {
+      "get": {
+        "summary": "Get Service Status",
+        "description": "Returns the current status of the Eidon service and its components.",
+        "operationId": "api_get_service_status",
+        "responses": {
+          "200": {
+            "description": "Service status information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponseModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/debug/status": {
+      "get": {
+        "summary": "Get Debug Status",
+        "description": "Debug endpoint to check screen capture service status.",
+        "operationId": "api_get_debug_status",
+        "responses": {
+          "200": {
+            "description": "Debug information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "capture_service_running": {
+                      "type": "boolean",
+                      "description": "Whether the capture service is currently running"
+                    },
+                    "last_capture_timestamp": {
+                      "type": "integer",
+                      "format": "int64",
+                      "description": "Timestamp of the last successful capture"
+                    },
+                    "queue_size": {
+                      "type": "integer",
+                      "description": "Number of items in the processing queue"
+                    },
+                    "uptime_seconds": {
+                      "type": "number",
+                      "format": "float",
+                      "description": "Service uptime in seconds"
+                    },
+                    "version": {
+                      "type": "string",
+                      "description": "Service version"
+                    }
+                  },
+                  "required": ["capture_service_running", "version"],
+                  "example": {
+                    "capture_service_running": true,
+                    "last_capture_timestamp": 1640995200000,
+                    "queue_size": 0,
+                    "uptime_seconds": 1234.56,
+                    "version": "0.2.1"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/entries": {
+      "get": {
+        "summary": "List Database Entries",
+        "description": "Retrieves a paginated list of database entries.",
+        "operationId": "api_list_database_entries",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of entries to return",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "Number of entries to skip",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EntryResponseModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/entry/ts/{timestamp_ms}": {
+      "get": {
+        "summary": "Get Entry by Timestamp",
+        "description": "Retrieves a database entry by its timestamp.",
+        "operationId": "api_get_database_entry_by_timestamp",
+        "parameters": [
+          {
+            "name": "timestamp_ms",
+            "in": "path",
+            "required": true,
+            "description": "Timestamp in milliseconds",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Entry details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryResponseModel"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Entry not found"
+          }
+        }
+      }
+    },
+    "/entry/fn/{filename}": {
+      "get": {
+        "summary": "Get Entry by Filename",
+        "description": "Retrieves a database entry by its filename.",
+        "operationId": "api_get_database_entry_by_filename",
+        "parameters": [
+          {
+            "name": "filename",
+            "in": "path",
+            "required": true,
+            "description": "Name of the file",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Entry details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntryResponseModel"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Entry not found"
+          }
+        }
+      }
+    },
+    "/entry/{entry_id}": {
+      "delete": {
+        "summary": "Delete Entry by ID",
+        "description": "Deletes a database entry by its ID.",
+        "operationId": "api_delete_database_entry",
+        "parameters": [
+          {
+            "name": "entry_id",
+            "in": "path",
+            "required": true,
+            "description": "ID of the entry to delete",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Entry deleted successfully"
+          },
+          "404": {
+            "description": "Entry not found"
+          }
+        }
+      }
+    },
+    "/screenshot/{filename}": {
+      "get": {
+        "summary": "Get Screenshot Image",
+        "description": "Retrieves a screenshot image by filename.",
+        "operationId": "api_get_screenshot_image_file",
+        "parameters": [
+          {
+            "name": "filename",
+            "in": "path",
+            "required": true,
+            "description": "Name of the screenshot file",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Screenshot image",
+            "content": {
+              "image/*": {}
+            }
+          },
+          "404": {
+            "description": "Screenshot not found"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CaptureDataPayload": {
+        "type": "object",
+        "properties": {
+          "image_base64": {
+            "type": "string",
+            "description": "Base64 encoded image string (PNG or JPEG preferred)."
+          },
+          "app_name": {
+            "type": "string",
+            "nullable": true,
+            "description": "Name of the application."
+          },
+          "window_title": {
+            "type": "string",
+            "nullable": true,
+            "description": "Title of the active window."
+          },
+          "page_url": {
+            "type": "string",
+            "nullable": true,
+            "description": "URL if the active window is a browser."
+          },
+          "timestamp_ms": {
+            "type": "integer",
+            "description": "Timestamp in milliseconds (UTC)."
+          }
+        },
+        "required": ["image_base64"]
+      },
+      "SearchQueryPayload": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Natural language search query."
+          },
+          "limit": {
+            "type": "integer",
+            "maximum": 50,
+            "default": 7,
+            "description": "Max items for LLM context."
+          }
+        },
+        "required": ["query"]
+      },
+      "EntryResponseModel": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "app": {
+            "type": "string",
+            "nullable": true
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "text": {
+            "type": "string",
+            "nullable": true,
+            "description": "OCR'd text. Can be null or empty."
+          },
+          "timestamp": {
+            "type": "integer"
+          },
+          "human_readable_timestamp": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string",
+            "nullable": true
+          },
+          "page_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "relevance_score": {
+            "type": "number",
+            "nullable": true,
+            "description": "Similarity score for search results."
+          },
+          "embedding_present": {
+            "type": "boolean",
+            "description": "Whether a text embedding exists for this entry."
+          },
+          "embedding_dim": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Dimension of the embedding if present."
+          }
+        },
+        "required": [
+          "id",
+          "app",
+          "title",
+          "timestamp",
+          "human_readable_timestamp",
+          "filename",
+          "page_url",
+          "embedding_present"
+        ]
+      },
+      "SearchResponseModel": {
+        "type": "object",
+        "properties": {
+          "query_received": {
+            "type": "string"
+          },
+          "llm_final_answer": {
+            "type": "string",
+            "nullable": true,
+            "description": "LLM's summarized answer to the user."
+          },
+          "retrieved_entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EntryResponseModel"
+            },
+            "description": "List of relevant entries found and presented by the LLM.",
+            "default": []
+          }
+        },
+        "required": ["query_received"]
+      },
+      "StatusResponseModel": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "total_entries_in_db": {
+            "type": "integer"
+          },
+          "voyage_api_configured": {
+            "type": "boolean"
+          },
+          "xai_api_configured": {
+            "type": "boolean"
+          },
+          "automatic_capture_enabled_in_config": {
+            "type": "boolean"
+          },
+          "capture_service_running": {
+            "type": "boolean"
+          },
+          "capture_queue_size": {
+            "type": "integer"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "active_processing_tasks": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "status",
+          "total_entries_in_db",
+          "voyage_api_configured",
+          "xai_api_configured",
+          "automatic_capture_enabled_in_config",
+          "capture_service_running",
+          "capture_queue_size",
+          "platform",
+          "active_processing_tasks"
+        ]
+      },
+      "HTTPValidationError": {
+        "type": "object",
+        "properties": {
+          "detail": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            }
+          }
+        }
+      },
+      "ValidationError": {
+        "type": "object",
+        "properties": {
+          "loc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "msg": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ]
+      }
+    }
+  }
+}
